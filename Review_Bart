@@ -1,0 +1,26 @@
+* Abstract
+	- Make it harder what the problem is and why your research needs to be done.
+
+* Introduction
+	- The first sentence of the second alinea "Hackers try... as harmful" is quite a statement that you make without a source, try to find a source that shows that this is indeed true.
+	- The sentence "Side-channel attacks are based on..." is rather vauge and does not really make it more clear what a side-channel attack is.
+
+* Background
+	- An explanation on what neural networks are and which architecture you plan to use would be nice.
+
+*Research questions
+	- Missing space on the first line
+	- RQ1.2 is vague to me, what exactly are you going to answer here? How are you going to measure feasibility?
+	As far as I understand, RQ1.2 tries to answer whether it is possible to do this in real-life scenario's, but don't you need to answer RQ2 first in order to answer RQ1.2?
+
+* Related work
+	- Try to explain more about what types of machine learning was used in the related researches. Did they also use neural nets? If not, what made you chose for neural networks? What were the other options?
+
+* Research Methods
+	- Have you thought of the difference in sensors in different phones? Would that make a difference? How are you going to solve that in the network?
+	- For RQ2, what do you mean with "places"?
+
+* Research Planning
+	- A small piece of text to explain your planning could be nice.
+
+In your copyright notice it says July 8th, while the conference is on July 6th

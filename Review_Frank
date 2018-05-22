@@ -1,0 +1,32 @@
+* Abstract
+	- I suggest to put the keywords below the abstract instead of above it.
+	- In the last sentence, hope does not sound right, replace with something like "aim"
+
+* Introduction
+	- In the last sentence, instead of saying "Should be possible" change it to someting like "Our hypotheses is..."
+	- You are talking about "machine learning" (also in the research questions) but never define what you mean by this. Do you already have some algorithm/ technique in mind? 
+	- Furthermore you name sentiment analysis and network analysis, which do not show up anywhere else in the proposal, it would be nice if you could give a description of what you are going to do.
+
+* Background
+	- last sentence of "Subreddits": plotical -> political
+	- Try to give some examples of what the data looks like.
+	- An explanation of the machine learning/ sentiment analysis/ NLP/ Network analysis would be nice
+
+* Research questions
+	- RQ1 is not a question but an aim while RQ2 and RQ3 are questions again. Try to be consistent in this.
+	- RQ2 is vague, take advantage to do what? Try to be more precise in what you are going to research here.
+	- It would be good to have some sort of evaluating question in here as well, to see how well your algorithm performs, i.e. in comparison to related work
+
+* Figure 1 is rather small to read properly
+
+* Methods
+	- This section could be more elaborate. Try to explain step by step how you are going to answer your research questions and which methods you are going to use. In the entire draft you mention "machine learning"
+	And a network analysis tool that was not introducted elsewhere which makes it hard to find out how exactly you are going to do your research.
+	- You mention that you are going to scrape your data yourself using the reddit API. I am wondering if you will have enough time to get enough data for your research because it might have a limitation on the amount of API calls you can make. Furthermore I don't see how you are going to label the posts, is there a set of users available that are affiliated to these malicious practices or are you going to evaluate and label all of this by hand?
+
+* Planning
+	- In week 19 you are getting your data, which is probably just making API calls automatically, is there any plan on what else you might do during this week? 
+	- A small piece of text explaining your planning could be nice.
+
+
+Your copyright notice still says "28th Converence... Febr 2nd, 2018", which was a mistake in the template that should be changed.
