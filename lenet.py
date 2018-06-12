@@ -13,14 +13,17 @@ class LeNet:
         # initialize the model
         model = Sequential()
 
+        #Add the first  CONV => ReLU => Pool layers.
         model.add(Convolution2D(20, (5, 5), padding="same", input_shape=(height, width, depth)))
         model.add(Activation("relu"))
         model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
+        #Add the second CONV => ReLU => Pool layers.
         model.add(Convolution2D(50, (5, 5), padding="same"))
         model.add(Activation("relu"))
         model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
 
+        #Add 2 dense layers to generate the output.
         model.add(Flatten())
         model.add(Dense(500))
         model.add(Activation("relu"))
