@@ -10,7 +10,7 @@ import utils
 import pandas as pd
 import seaborn as sb
 import numpy as np
-import json
+import math
 
 print("TEST")
 batch_size = 128
@@ -76,6 +76,41 @@ if args["load_model"] < 0:
 
 print("[INFO] evaluating ...")
 
+def train_with_noise(amount):
+    # initialize the model with the given parameters.
+    newmodel = LeNet.build(width=28, height=28, depth=1, classes=num_classes,
+                        weightsPath=args["weights"] if args["load_model"] > 0 else None)
+
+    # we use categorical_crossentropy as our loss function
+    newmodel.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+
+    base_dir = os.path.join(os.path.dirname(__file__), '../datasets/')
+
+    x_train_shapes = np.load(base_dir + 'random_shapes/20shapes/op0.4.npz')['arr_0'][0:math.ceil(amount/4)]
+    x_train_bars = np.load(base_dir + 'bar_noise/op0.4.npz')['arr_0'][0:math.ceil(amount/4)]
+    x_train_pixels = np.load(base_dir + 'random_pixels/op0.4.npz')['arr_0'][0:math.ceil(amount/4)]
+    x_train_numbers = np.load(base_dir + 'number_noise/op0.4.npz')['arr_0'][0:math.ceil(amount/4)]
+    x_train_extended = np.concatenate((x_train, x_train_shapes, x_train_bars, x_train_pixels, x_train_numbers), axis=0)
+    y_train_extended = np.concatenate((y_train, y_train[0:math.ceil(amount/4)], y_train[0:math.ceil(amount/4)], y_train[0:math.ceil(amount/4)], y_train[0:math.ceil(amount/4)]))
+    print("[INFO] training with noise:" + str(amount))
+    newmodel.fit(x_train_extended, y_train_extended, batch_size=batch_size, epochs=epochs, verbose=1)
+    newmodel.save_weights('output/lenet_weights_' + str(amount) + 'noise.hdf5', overwrite=True)
+
+def test_different_networks(amount):
+    newmodel = LeNet.build(width=28, height=28, depth=1, classes=num_classes, weightsPath='output/lenet_weights_' + str(amount) + 'noise.hdf5')
+    newmodel.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+
+    base_dir = os.path.join(os.path.dirname(__file__), '../datasets/')
+    x_test_shapes = np.load(base_dir + 'random_shapes/20shapes/op0.4.npz')['arr_0'][5000:10000]
+    x_test_bars = np.load(base_dir + 'bar_noise/op0.4.npz')['arr_0'][5000:10000]
+    x_test_pixels = np.load(base_dir + 'random_pixels/op0.4.npz')['arr_0'][5000:10000]
+    x_test_numbers = np.load(base_dir + 'number_noise/op0.4.npz')['arr_0'][5000:10000]
+    x_test_extended = np.concatenate((x_test, x_test_shapes, x_test_bars, x_test_pixels, x_test_numbers), axis=0)
+    y_test_extended = np.concatenate((y_test, y_test[5000:10000], y_test[5000:10000], y_test[5000:10000], y_test[5000:10000]))
+    print(str(len(x_test_extended)))
+    print(str(len(y_test_extended)))
+    (loss, accuracy) = newmodel.evaluate(x_test_extended, y_test_extended, batch_size = batch_size, verbose=1)
+    print("Percentage of noise added to the dataset" + str(amount / (amount + 10000) * 100) + ", accuracy: " + str(accuracy))
 
 def calc_acc_multopacities(dataset_dir: str, calcdistance):
     xvalues = []
@@ -90,17 +125,26 @@ def calc_acc_multopacities(dataset_dir: str, calcdistance):
             testset = dataset['arr_0'].reshape((10000,28,28,1))
             testset = testset.astype('float32')
             testset /= 255
-            (loss, accuracy) = model.evaluate(testset, y_test, batch_size = batch_size, verbose=1)
+#            (loss, accuracy) = model.evaluate(testset, y_test, batch_size = batch_size, verbose=1)
+            predictions = model.predict(testset)
+            correct = 0
+            for i in range(0, len(predictions)):
+                confidence = np.amax(predictions[i])
+                prediction = predictions[i].tolist().index(confidence)
+                if prediction == y_test[i].tolist().index(1):
+                    correct += 1
+            accuracy = correct / len(predictions)
             print("[INFO] accuracy with noise : {:.2f}%".format(accuracy * 100))
             if calcdistance:
                 distance = utils.distance(x_test, testset)
                 xvalues.append(distance)
                 print("opacity : " + str(opacity) + ", distance : " + str(distance))
-            yvalues.append(accuracy)
+            yvalues.append(accuracy * 100)
     return (xvalues, yvalues)
 
 def calc_confidence(dataset_dir, calcdistance):
     xvalues = []
+    standevs = []
     yvalues = []
     for x in range(0, 101):
         if x % 5 == 0:
@@ -113,18 +157,44 @@ def calc_confidence(dataset_dir, calcdistance):
             testset = testset.astype('float32')
             testset /= 255
             predictions = model.predict(testset)
-            totalconfidence = 0
+            confidences = np.zeros(len(predictions))
             for i in range(0, len(predictions)):
-                confidence = np.amax(predictions[i])
-                if predictions[i].tolist().index(confidence) == y_test[i].tolist().index(1):
-                    totalconfidence += confidence
-            totalconfidence = totalconfidence / len(predictions)
+                confidences[i] = np.amax(predictions[i])
+            totalconfidence = np.mean(confidences)
+            standev = np.std(confidences)
             if calcdistance:
                 distance = utils.distance(x_test, testset)
                 xvalues.append(distance)
-            yvalues.append(totalconfidence)
-            print("Distance: " + str(distance) + " Confidence: " + str(totalconfidence))
-    return (xvalues, yvalues)
+            yvalues.append(totalconfidence * 100)
+            standevs.append(standev * 100)
+            print("Distance: " + str(distance) + " Confidence: " + str(totalconfidence) + "STD error: " + str(standev))
+    return (xvalues, yvalues, standevs)
+
+# def calc_confidence(dataset_dir, calcdistance):
+#     xvalues = []
+#     yvalues = []
+#     for x in range(0, 101):
+#         if x % 5 == 0:
+#             opacity = x / 100
+#             print("TESTING OPACITY:", opacity)
+#             base_dir = os.path.join(os.path.dirname(__file__), '../datasets/' + dataset_dir + "/")
+#             print(base_dir + 'op' + str(opacity) + ".npz")
+#             dataset = np.load(base_dir + 'op' + str(opacity) + ".npz")
+#             testset = dataset['arr_0'].reshape((10000, 28, 28, 1))
+#             testset = testset.astype('float32')
+#             testset /= 255
+#             predictions = model.predict(testset)
+#             totalconfidence = 0
+#             for i in range(0, len(predictions)):
+#                 confidence = np.amax(predictions[i])
+#                 totalconfidence += confidence
+#             totalconfidence = totalconfidence / len(predictions)
+#             if calcdistance:
+#                 distance = utils.distance(x_test, testset)
+#                 xvalues.append(distance)
+#             yvalues.append(totalconfidence * 100)
+#             print("Distance: " + str(distance) + " Confidence: " + str(totalconfidence))
+#     return (xvalues, yvalues)
 
 
 def calc_confusion_matrix(dir):
@@ -189,19 +259,39 @@ def calculate_prediction_spread_numbernoise():
     yasothernumber = []
     xvalues = []
     for x in range(0, 101):
-        if x % 5 == 0:
+        if x % 10 == 0:
             opacity = x / 100
             xvalues.append(opacity)
             correctpredicted, predictedasnoise, predictedasothernumber = calc_number_distortion(opacity)
             ycorrect.append(correctpredicted)
             yasnoise.append(predictedasnoise)
             yasothernumber.append(predictedasothernumber)
-    plt.plot(xvalues, ycorrect, label='% of images correctly predicted')
-    plt.plot(xvalues, yasnoise, label='% of images predicted as added noise')
-    plt.plot(xvalues, yasothernumber, label='% of images predicted as arbitrary number')
-    plt.legend()
-    plt.xlabel('opacity')
-    plt.ylabel('accuracy')
+
+    N = len(ycorrect)
+    ind = np.arange(N)
+    width = 0.3
+
+    print(ycorrect)
+    print(yasnoise)
+    print(yasothernumber)
+    current_heights = [0] * 11
+    pcorrect = plt.bar(ind, ycorrect, width, bottom=current_heights)
+
+    for x in range(0, 11):
+        current_heights[x] += ycorrect[x]
+    pasnoise = plt.bar(ind, yasnoise, width, bottom=current_heights)
+
+    for x in range(0, 11):
+        current_heights[x] += yasnoise[x]
+
+    pasothernumber = plt.bar(ind, yasothernumber, width, bottom=current_heights)
+
+    print(ind)
+    plt.xticks(ind, ('0.0', '0.1', '0.2', '0.3', '0.4', '0.5',
+                     '0.6', '0.7', '0.8', '0.9', '1.0'))
+    plt.ylabel('% Classified')
+    plt.xlabel('Opacity')
+    plt.legend((pcorrect[0], pasnoise[0], pasothernumber[0]), ('Correct', 'As noise', 'As other number'))
     plt.show()
 
 def calculate_accuracies():
@@ -218,39 +308,50 @@ def calculate_accuracies():
     # with open('../results/accuracies.json', 'w') as file:
     #     json.dump(results, file)
 
-    plt.plot(xshape,yshape, label = 'Shapes')
-    plt.plot(xrand,yrand, label = 'Random Noise')
-    plt.plot(xnum,ynum, label = 'Other numbers')
-    plt.plot(xbar,ybar, label = 'Horizontal bars')
+    plt.plot(xshape,yshape, label = 'Shapes', marker='.')
+    plt.plot(xrand,yrand, label = 'Random Noise', marker='.')
+    plt.plot(xnum,ynum, label = 'Other numbers', marker='.')
+    plt.plot(xbar,ybar, label = 'Horizontal bars', marker='.')
     plt.legend()
+    plt.ylim((0, 100))
+    plt.xlim((0, 0.25))
     plt.xlabel('Distance')
     plt.ylabel('Accuracy')
     plt.show()
 
 def calculate_confidence():
-    xshape, yshape = calc_confidence('random_shapes/20shapes', True)
-    xrand, yrand = calc_confidence('random_pixels', True)
-    xnum, ynum = calc_confidence('number_noise', True)
-    xbar, ybar = calc_confidence('bar_noise', True)
-
-    results = dict()
-    results['Shapes'] = (xshape, yshape)
-    results['Random'] = (xrand, yrand)
-    results['Numbers'] = (xnum, ynum)
-    results['Bars'] = (xbar, ybar)
-    # with open('../results/accuracies.json', 'w') as file:
-    #     json.dump(results, file)
-
-    plt.plot(xshape,yshape, label = 'Test')
-    plt.plot(xrand,yrand, label = 'Random Noise')
-    plt.plot(xnum,ynum, label = 'Other numbers')
-    plt.plot(xbar,ybar, label = 'Horizontal bars')
+    xshape, yshape, standevshape = calc_confidence('random_shapes/20shapes', True)
+    xrand, yrand, standevrand = calc_confidence('random_pixels', True)
+    xnum, ynum, standevnum = calc_confidence('number_noise', True)
+    xbar, ybar, standevbar = calc_confidence('bar_noise', True)
+    ybase = [0.1] * 100
+    plt.errorbar(xshape,yshape, yerr=standevshape, label = 'Shapes', marker='.')
+    plt.errorbar(xrand,yrand, yerr=standevrand, label = 'Random Noise', marker='.')
+    plt.errorbar(xnum,ynum, yerr=standevnum, label = 'Other numbers', marker='.')
+    plt.plot(ybase, label='Baseline (random guessing)')
+    plt.errorbar(xbar,ybar, yerr=standevbar, label = 'Horizontal bars', marker='.')
     plt.legend()
+    plt.xlim((0, 0.25))
     plt.xlabel('Distance')
     plt.ylabel('Confidence')
     plt.show()
 
+def calculate_acc_multaddednoise():
+    test_different_networks(0)
+    test_different_networks(100)
+    test_different_networks(500)
+    test_different_networks(1000)
+    test_different_networks(5000)
+    test_different_networks(10000)
+
 calculate_confidence()
+# train_with_noise(0)
+# train_with_noise(100)
+# train_with_noise(500)
+# train_with_noise(1000)
+# train_with_noise(5000)
+# train_with_noise(10000)
+
 # plt.plot(xbars, ybars, label='horizontal bars')
 # plt.plot(xrand, yrand, label='random pixels')
 # plt.plot(xnumbers, ynumbers, label='other numbers')
